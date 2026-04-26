@@ -12,17 +12,14 @@ logger = logging.getLogger(__name__)
 
 def run_batch():
     """
-    Scans data/scripts/*.pdf, finds matching CSV in data/marks/,
-    runs Gemini detection, and saves results to data/pending/.
+    Scans data/scripts/**/*.pdf, finds matching CSV in data/marks/ (mirrored structure),
+    runs Gemini detection, and saves results to data/pending/ (mirrored structure).
     """
     scripts_dir = Path("data/scripts")
     marks_dir = Path("data/marks")
     pending_dir = Path("data/pending")
     
-    # Create directories if they don't exist
-    pending_dir.mkdir(parents=True, exist_ok=True)
-    
-    pdf_files = list(scripts_dir.glob("*.pdf"))
+    pdf_files = list(scripts_dir.rglob("*.pdf"))
     if not pdf_files:
         logger.warning(f"No PDF files found in {scripts_dir}")
         return
@@ -30,22 +27,25 @@ def run_batch():
     logger.info(f"Found {len(pdf_files)} PDF scripts to process.")
 
     for pdf_path in pdf_files:
+        rel_path = pdf_path.relative_to(scripts_dir).parent
         doc_id = pdf_path.stem
         
         # Map PDF (ds_001) to CSV (gt_001)
         csv_id = doc_id.replace("ds_", "gt_")
-        csv_path = marks_dir / f"{csv_id}.csv"
+        csv_path = marks_dir / rel_path / f"{csv_id}.csv"
         
         if not csv_path.exists():
             logger.warning(f"Skipping {doc_id}: CSV not found at {csv_path}")
             continue
             
-        pending_path = pending_dir / f"{doc_id}.json"
+        target_pending_dir = pending_dir / rel_path
+        pending_path = target_pending_dir / f"{doc_id}.json"
+        
         if pending_path.exists():
             logger.info(f"Skipping {doc_id}: Pending JSON already exists.")
             continue
 
-        logger.info(f"Processing {doc_id}...")
+        logger.info(f"Processing {doc_id} from {rel_path}...")
         try:
             # Load question IDs from marks CSV to guide Gemini
             marks_map = load_marks_csv(str(csv_path))
@@ -68,6 +68,9 @@ def run_batch():
             # Add metadata
             detected["document_id"] = doc_id
             detected["total_pages"] = get_pdf_total_pages(str(pdf_path))
+            
+            # Ensure target directory exists before saving
+            target_pending_dir.mkdir(parents=True, exist_ok=True)
             
             # Save candidate ground truth to pending
             save_output_json(detected, str(pending_path))
