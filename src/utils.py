@@ -46,6 +46,8 @@ def render_pdf_page(pdf_path: str, page_number: int, dpi: int = 150) -> bytes:
     """
     doc = fitz.open(pdf_path)
     try:
+        if page_number < 1 or page_number > len(doc):
+            raise ValueError(f"Invalid page number {page_number}. Must be between 1 and {len(doc)}.")
         page = doc.load_page(page_number - 1)
         pix = page.get_pixmap(dpi=dpi)
         return pix.tobytes("png")
