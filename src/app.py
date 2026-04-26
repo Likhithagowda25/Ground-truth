@@ -223,10 +223,12 @@ if not st.session_state.editable_df.empty:
         with nav_col1:
             if st.button("⬅️ Previous", use_container_width=True, disabled=st.session_state.file_index == 0):
                 st.session_state.file_index -= 1
+                st.session_state.current_page = 1
                 st.rerun()
         with nav_col2:
             if st.button("Next ➡️", use_container_width=True, disabled=st.session_state.file_index >= len(file_names) - 1):
                 st.session_state.file_index += 1
+                st.session_state.current_page = 1
                 st.rerun()
         
         with page_col:
