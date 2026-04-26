@@ -8,9 +8,9 @@ __pycache__/
 # Data (Sensitive & local)
 data/
 
-# AI Agent Artifacts (Requested to be excluded)
+# AI Agent Artifacts & Project Documentation (Requested to be excluded)
+docs/
 .superpowers/
-docs/superpowers/
 ~/
 .gemini/
 GEMINI.md
