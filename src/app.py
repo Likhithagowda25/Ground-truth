@@ -94,19 +94,13 @@ else:
     file_display_map = {str(f.relative_to(pending_root)): f for f in pending_files}
     file_names = list(file_display_map.keys())
     
-    # Sync file_index with last_selected if needed
-    if st.session_state.last_selected:
-        try:
-            last_rel_path = str(Path(st.session_state.last_selected).relative_to(pending_root))
-            if last_rel_path in file_names:
-                st.session_state.file_index = file_names.index(last_rel_path)
-        except ValueError:
-            pass
+    # Ensure file_index is within bounds
+    st.session_state.file_index = min(st.session_state.file_index, len(file_names) - 1)
 
     selected_rel_path = st.sidebar.radio(
         "Select a script to verify", 
         file_names,
-        index=min(st.session_state.file_index, len(file_names) - 1)
+        index=st.session_state.file_index
     )
     
     # Update file_index based on radio selection
@@ -197,24 +191,6 @@ if not st.session_state.editable_df.empty:
             pdf_path = Path("data/scripts") / rel_path / f"{st.session_state.document_id}.pdf"
             
             if pdf_path.exists():
-                # Navigation Bar
-                nav_col1, nav_col2, nav_col3 = st.columns([2, 1, 2])
-                with nav_col2:
-                    jump_page = st.number_input(
-                        "Page",
-                        min_value=1,
-                        max_value=st.session_state.total_pages,
-                        value=st.session_state.current_page,
-                        key="jump_page_input",
-                        label_visibility="collapsed"
-                    )
-
-                    if jump_page != st.session_state.current_page:
-                        st.session_state.current_page = jump_page
-                        st.rerun()
-
-                    st.write(f"<p style='text-align: center;'>of {st.session_state.total_pages}</p>", unsafe_allow_html=True)
-
                 # Render and Display Page
                 try:
                     img_bytes = render_pdf_page(str(pdf_path), st.session_state.current_page)
@@ -227,15 +203,28 @@ if not st.session_state.editable_df.empty:
                 st.warning(f"PDF not found at {pdf_path}")
 
     with col_table:
-        # Navigation Buttons for Scripts
-        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 3])
+        # Navigation for Scripts and Pages
+        btn_col1, btn_col2, page_col = st.columns([1, 1, 1.5])
         with btn_col1:
-            if st.button("⬅️ Prev", use_container_width=True, disabled=st.session_state.file_index == 0):
+            if st.button("⬅️ Prev Script", use_container_width=True, disabled=st.session_state.file_index == 0):
                 st.session_state.file_index -= 1
                 st.rerun()
         with btn_col2:
-            if st.button("Next ➡️", use_container_width=True, disabled=st.session_state.file_index >= len(file_names) - 1):
+            if st.button("Next Script ➡️", use_container_width=True, disabled=st.session_state.file_index >= len(file_names) - 1):
                 st.session_state.file_index += 1
+                st.rerun()
+        
+        with page_col:
+            jump_page = st.number_input(
+                "Jump to Page",
+                min_value=1,
+                max_value=st.session_state.total_pages,
+                value=st.session_state.current_page,
+                key="jump_page_input",
+                label_visibility="visible"
+            )
+            if jump_page != st.session_state.current_page:
+                st.session_state.current_page = jump_page
                 st.rerun()
 
         st.subheader("Question Mapping")
