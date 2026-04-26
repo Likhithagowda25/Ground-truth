@@ -40,7 +40,7 @@ def process_script_data(pending_file_path: Path) -> dict:
     # Use fallback for total_pages if needed
     total_pages = data.get("total_pages", 0)
     if not total_pages:
-        pdf_path = Path("data/scripts") / f"{doc_id}.pdf"
+        pdf_path = Path("data/scripts") / rel_path / f"{doc_id}.pdf"
         if pdf_path.exists():
             total_pages = get_pdf_total_pages(str(pdf_path))
 
@@ -110,7 +110,7 @@ else:
         for i, pf in enumerate(pending_files):
             try:
                 # Calculate relative path to mirror structure
-                rel_path = pf.relative_to(Path("data/pending")).parent
+                rel_path = pf.relative_to(pending_root).parent
                 payload = process_script_data(pf)
                 doc_id = payload["document_id"]
                 
@@ -134,8 +134,9 @@ if selected_file and str(selected_file) != st.session_state.last_selected:
         merged = payload["questions"]
 
         # Map back to CSV to check if it exists for the warning
+        rel_path = selected_file.relative_to(pending_root).parent
         csv_id = doc_id.replace("ds_", "gt_")
-        csv_path = Path("data/marks") / f"{csv_id}.csv"
+        csv_path = Path("data/marks") / rel_path / f"{csv_id}.csv"
         if not csv_path.exists():
             st.warning(f"Marks CSV not found for {doc_id} at {csv_path}. Defaulting marks to 0.")
 
@@ -177,7 +178,10 @@ if not st.session_state.editable_df.empty:
     with col_pdf:
         with st.container():
             st.subheader(f"Script: {st.session_state.document_id}")
-            pdf_path = Path("data/scripts") / f"{st.session_state.document_id}.pdf"
+            
+            # Use relative path to find PDF
+            rel_path = Path(st.session_state.last_selected).relative_to(pending_root).parent
+            pdf_path = Path("data/scripts") / rel_path / f"{st.session_state.document_id}.pdf"
             
             if pdf_path.exists():
                 # Navigation Bar (Simplified to Skip-to-Page only)
@@ -253,8 +257,8 @@ if not st.session_state.editable_df.empty:
                     questions=questions,
                 )
                 
-                # Calculate relative path to mirror structure
-                rel_path = selected_file.relative_to(Path("data/pending")).parent
+                # Mirror structure during export
+                rel_path = Path(st.session_state.last_selected).relative_to(pending_root).parent
                 output_dir = Path(export_path) / rel_path
                 output_dir.mkdir(parents=True, exist_ok=True)
                 output_path = output_dir / f"{st.session_state.document_id}.json"
