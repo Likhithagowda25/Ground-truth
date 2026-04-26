@@ -69,6 +69,8 @@ if "current_page" not in st.session_state:
     st.session_state.current_page = 1
 if "last_selected" not in st.session_state:
     st.session_state.last_selected = ""
+if "file_index" not in st.session_state:
+    st.session_state.file_index = 0
 
 # --- Sidebar: Verification Hub ---
 st.sidebar.title("Verification Hub")
@@ -92,21 +94,23 @@ else:
     file_display_map = {str(f.relative_to(pending_root)): f for f in pending_files}
     file_names = list(file_display_map.keys())
     
-    # Safe index for radio selection based on previous choice
-    default_index = 0
+    # Sync file_index with last_selected if needed
     if st.session_state.last_selected:
         try:
             last_rel_path = str(Path(st.session_state.last_selected).relative_to(pending_root))
             if last_rel_path in file_names:
-                default_index = file_names.index(last_rel_path)
+                st.session_state.file_index = file_names.index(last_rel_path)
         except ValueError:
             pass
 
     selected_rel_path = st.sidebar.radio(
         "Select a script to verify", 
         file_names,
-        index=default_index
+        index=min(st.session_state.file_index, len(file_names) - 1)
     )
+    
+    # Update file_index based on radio selection
+    st.session_state.file_index = file_names.index(selected_rel_path)
     selected_file = file_display_map[selected_rel_path]
 
     st.sidebar.divider()
@@ -223,6 +227,17 @@ if not st.session_state.editable_df.empty:
                 st.warning(f"PDF not found at {pdf_path}")
 
     with col_table:
+        # Navigation Buttons for Scripts
+        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 3])
+        with btn_col1:
+            if st.button("⬅️ Prev", use_container_width=True, disabled=st.session_state.file_index == 0):
+                st.session_state.file_index -= 1
+                st.rerun()
+        with btn_col2:
+            if st.button("Next ➡️", use_container_width=True, disabled=st.session_state.file_index >= len(file_names) - 1):
+                st.session_state.file_index += 1
+                st.rerun()
+
         st.subheader("Question Mapping")
         st.info(f"Total Pages in PDF: {st.session_state.total_pages}")
         st.write("Review and edit question page ranges.")

@@ -1,86 +1,74 @@
-# Ground Truth Generation Tool (Autonomous & Verified)
+# Ground-Truth Generator & Verifier
 
-An autonomous system for generating and verifying ground-truth JSON for student answer scripts using **Gemini 2.5 Pro (Multimodal)** and **Streamlit**.
+A multimodal AI tool powered by Gemini 2.5 Pro for autonomous generation and manual verification of student answer script ground-truth JSONs.
 
 ## Features
+- **AI-Guided Detection**: Automatically maps question IDs to physical PDF pages using Gemini 2.5 Pro.
+- **Recursive Directory Support**: Organize your scripts and marks in nested folders (e.g., by class, subject, or year). The tool preserves this structure throughout the pipeline.
+- **Verification Dashboard**: A Streamlit-based UI to review AI predictions alongside the original PDF.
+- **Bulk Processing**: CLI tool for high-volume candidate generation.
+- **Smart Compression**: Automatically optimizes PDFs for LLM processing to reduce latency and costs.
 
--   **Autonomous Batch Processing**: Automatically scans student script PDFs and marks CSVs to generate initial question-to-page mappings.
--   **Multimodal AI Detection**: Uses Gemini 2.5 Pro vision capabilities to "read" handwritten scripts and detect answer locations.
--   **Intelligent PDF Optimization**: Automatically compresses scripts for LLM processing to reduce latency and cost while maintaining legibility.
--   **Verification Dashboard**:
-    -   **Paginated Viewer**: Custom image-based renderer for a stable, fit-to-screen experience.
-    -   **Dynamic Layout**: Optimized split view with an expanded table for easy editing.
-    -   **Direct Navigation**: Skip to any page instantly via numeric input.
-    -   **Bulk Export**: Export all verified scripts in one click or process individual files.
-    -   **Custom Paths**: Configure your export directory on the fly.
+## Directory Structure
+The tool expects the following structure in the `data/` directory:
+
+```text
+data/
+├── scripts/             # Input student answer scripts (PDF)
+│   └── [subfolders]/    # (Optional) Nested organization
+├── marks/               # Input marks CSVs (must match script filename prefix)
+│   └── [subfolders]/    # (Optional) Must match scripts subfolder structure
+├── pending/             # Generated candidate JSONs (auto-created)
+└── output/              # Final verified ground-truth JSONs (auto-created)
+```
+
+**Note**: Files in `scripts/` (e.g., `ds_001.pdf`) are matched with files in `marks/` (e.g., `gt_001.csv`) using the `ds_` to `gt_` prefix mapping.
 
 ## Installation
 
-### 1. Prerequisites
-- **Python 3.12+**
-- **GCloud SDK**: Configured with Application Default Credentials (ADC).
-  ```bash
-  gcloud auth application-default login
-  ```
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd Ground-truth
+   ```
 
-### 2. Setup
-Clone the repository and install dependencies using pip:
-```bash
-pip install .
-```
-*(Alternatively, install the required packages: `google-genai`, `streamlit`, `pymupdf`, `pandas`)*
+2. **Set up virtual environment**:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # Linux/macOS
+   # or
+   .venv\Scripts\activate     # Windows
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   pip install .
+   ```
+
+4. **Authentication**:
+   Ensure you have `gcloud` ADC configured:
+   ```bash
+   gcloud auth application-default login
+   ```
 
 ## Usage
 
-### 1. Prepare Data
-- Place student PDFs in `data/scripts/` (e.g., `ds_001.pdf`).
-- Place matching marks CSVs in `data/marks/` (e.g., `gt_001.csv`).
-
-### 2. Run Batch Detection
-Execute the autonomous detector to generate initial mappings:
+### 1. Batch Generation
+Place your PDFs in `data/scripts/` and matching CSVs in `data/marks/`. Then run:
 ```bash
 python src/batch_processor.py
 ```
-This generates candidate JSON files in `data/pending/`.
+Candidates will be generated in `data/pending/`.
 
-### 3. Verify & Export
-Launch the dashboard to review and finalize the detections:
+### 2. Manual Verification
+Launch the verification dashboard:
 ```bash
 streamlit run src/app.py
 ```
-- Select a script from the **Verification Hub** sidebar.
-- Use the **Page Input** to navigate the PDF.
-- Edit the **Question Mapping** table as needed (empty page numbers are allowed).
+- Select a script from the sidebar or use the **Prev/Next** buttons.
+- Review the PDF and edit the question-to-page mappings in the table.
 - Click **Export Verified Ground Truth** to save the final JSON to `data/output/`.
 
----
-
-## Example Formats
-
-### Input: Marks CSV (`gt_001.csv`)
-```csv
-question_id,marks
-1a,6
-1b,7
-1c,0
-```
-
-### Output: Verified JSON (`ds_001.json`)
-```json
-{
-  "document_id": "ds_001",
-  "total_pages": 12,
-  "questions": [
-    {
-      "question_id": "1a",
-      "pages": [1, 2],
-      "obtained_marks": 6
-    },
-    {
-      "question_id": "1b",
-      "pages": [3],
-      "obtained_marks": 7
-    }
-  ]
-}
-```
+## Input Schema
+- **Marks CSV**: Must contain `question_id` (lowercase) and `obtained_marks` columns.
+- **PDF Scripts**: Standard student answer scripts.
