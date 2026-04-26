@@ -70,28 +70,32 @@ export_path = st.sidebar.text_input("Export Directory", value="data/output/", he
 st.sidebar.divider()
 
 # Script Selection
-pending_dir = Path("data/pending")
-pending_files = sorted(list(pending_dir.glob("*.json")))
+pending_root = Path("data/pending")
+pending_files = sorted(list(pending_root.rglob("*.json")))
 
 if not pending_files:
     st.sidebar.info("No pending files found.")
     selected_file = None
 else:
-    file_names = [f.name for f in pending_files]
+    # Use relative paths as display names to avoid collisions
+    file_display_names = {str(f.relative_to(pending_root)): f for f in pending_files}
+    file_names = list(file_display_names.keys())
     
     # Safe index for radio selection
     default_index = 0
     if st.session_state.get("last_selected"):
-        last_name = Path(st.session_state.last_selected).name
-        if last_name in file_names:
-            default_index = file_names.index(last_name)
+        last_path = Path(st.session_state.last_selected)
+        for i, rel_path in enumerate(file_names):
+            if file_display_names[rel_path] == last_path:
+                default_index = i
+                break
 
-    selected_file_name = st.sidebar.radio(
+    selected_rel_path = st.sidebar.radio(
         "Select a script to verify", 
-        file_names,
+        file_names, 
         index=default_index
     )
-    selected_file = pending_dir / selected_file_name
+    selected_file = file_display_names[selected_rel_path]
 
     st.sidebar.divider()
     if st.sidebar.button("🚀 Export All Pending", use_container_width=True):
