@@ -1,6 +1,5 @@
 import os
 import json
-import base64
 from pathlib import Path
 
 import pandas as pd
@@ -12,6 +11,7 @@ from utils import (
     merge_questions_with_marks,
     parse_pages_value,
     save_output_json,
+    render_pdf_page,
 )
 
 
@@ -26,6 +26,8 @@ if "document_id" not in st.session_state:
     st.session_state.document_id = ""
 if "total_pages" not in st.session_state:
     st.session_state.total_pages = 0
+if "current_page" not in st.session_state:
+    st.session_state.current_page = 1
 if "last_selected" not in st.session_state:
     st.session_state.last_selected = ""
 
@@ -59,15 +61,9 @@ else:
     )
     selected_file = pending_dir / selected_file_name
 
-# --- Helper: PDF Viewer ---
-def display_pdf(file_path):
-    with open(file_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="1000" type="application/pdf"></iframe>'
-    st.markdown(pdf_display, unsafe_allow_html=True)
-
 # --- Load Selected File ---
 if selected_file and str(selected_file) != st.session_state.last_selected:
+    st.session_state.current_page = 1
     try:
         with open(selected_file, "r") as f:
             data = json.load(f)
@@ -121,8 +117,26 @@ if not st.session_state.editable_df.empty:
     with col_pdf:
         st.subheader(f"Script: {st.session_state.document_id}")
         pdf_path = Path("data/scripts") / f"{st.session_state.document_id}.pdf"
+        
         if pdf_path.exists():
-            display_pdf(str(pdf_path))
+            # Navigation Bar
+            nav_col1, nav_col2, nav_col3 = st.columns([1, 2, 1])
+            with nav_col1:
+                if st.button("Previous", disabled=st.session_state.current_page <= 1, use_container_width=True):
+                    st.session_state.current_page -= 1
+                    st.rerun()
+            with nav_col2:
+                st.markdown(f"<h3 style='text-align: center;'>Page {st.session_state.current_page} / {st.session_state.total_pages}</h3>", unsafe_allow_html=True)
+            with nav_col3:
+                if st.button("Next", disabled=st.session_state.current_page >= st.session_state.total_pages, use_container_width=True):
+                    st.session_state.current_page += 1
+                    st.rerun()
+
+            # Render and Display Page
+            img_bytes = render_pdf_page(str(pdf_path), st.session_state.current_page)
+            st.image(img_bytes, use_container_width=True)
+            
+            st.info(f"Viewing Physical Page {st.session_state.current_page}")
         else:
             st.warning(f"PDF not found at {pdf_path}")
 
