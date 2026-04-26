@@ -139,7 +139,6 @@ if selected_file and str(selected_file) != st.session_state.last_selected:
         merged = payload["questions"]
 
         # Resolve relative path for UI warning checks
-        pending_root = Path("data/pending")
         rel_path = selected_file.relative_to(pending_root).parent
         csv_id = doc_id.replace("ds_", "gt_")
         csv_path = Path("data/marks") / rel_path / f"{csv_id}.csv"
@@ -186,7 +185,6 @@ if not st.session_state.editable_df.empty:
             st.subheader(f"Script: {st.session_state.document_id}")
             
             # Resolve relative PDF path based on selected script
-            pending_root = Path("data/pending")
             rel_path = Path(st.session_state.last_selected).relative_to(pending_root).parent
             pdf_path = Path("data/scripts") / rel_path / f"{st.session_state.document_id}.pdf"
             
@@ -203,29 +201,32 @@ if not st.session_state.editable_df.empty:
                 st.warning(f"PDF not found at {pdf_path}")
 
     with col_table:
-        # Navigation for Scripts and Pages
-        btn_col1, btn_col2, page_col = st.columns([1, 1, 1.5])
-        with btn_col1:
-            if st.button("⬅️ Prev Script", use_container_width=True, disabled=st.session_state.file_index == 0):
+        # Script Navigation Row
+        nav_col1, nav_col2, page_col = st.columns([1, 1, 1.5])
+        with nav_col1:
+            if st.button("⬅️ Previous", use_container_width=True, disabled=st.session_state.file_index == 0):
                 st.session_state.file_index -= 1
                 st.rerun()
-        with btn_col2:
-            if st.button("Next Script ➡️", use_container_width=True, disabled=st.session_state.file_index >= len(file_names) - 1):
+        with nav_col2:
+            if st.button("Next ➡️", use_container_width=True, disabled=st.session_state.file_index >= len(file_names) - 1):
                 st.session_state.file_index += 1
                 st.rerun()
         
         with page_col:
-            jump_page = st.number_input(
+            # Simple text input for page number to avoid +/- buttons
+            page_val = st.text_input(
                 "Jump to Page",
-                min_value=1,
-                max_value=st.session_state.total_pages,
-                value=st.session_state.current_page,
-                key="jump_page_input",
-                label_visibility="visible"
+                value=str(st.session_state.current_page),
+                key="page_text_input",
+                help=f"Total pages: {st.session_state.total_pages}"
             )
-            if jump_page != st.session_state.current_page:
-                st.session_state.current_page = jump_page
-                st.rerun()
+            try:
+                new_page = int(page_val)
+                if 1 <= new_page <= st.session_state.total_pages and new_page != st.session_state.current_page:
+                    st.session_state.current_page = new_page
+                    st.rerun()
+            except ValueError:
+                pass
 
         st.subheader("Question Mapping")
         st.info(f"Total Pages in PDF: {st.session_state.total_pages}")
@@ -266,7 +267,6 @@ if not st.session_state.editable_df.empty:
                 )
                 
                 # Mirror directory structure on final export
-                pending_root = Path("data/pending")
                 rel_path = Path(st.session_state.last_selected).relative_to(pending_root).parent
                 target_dir = export_root / rel_path
                 target_dir.mkdir(parents=True, exist_ok=True)
