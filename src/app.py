@@ -171,7 +171,22 @@ if not st.session_state.editable_df.empty:
                         st.session_state.current_page -= 1
                         st.rerun()
                 with nav_col2:
-                    st.markdown(f"<h3 style='text-align: center;'>Page {st.session_state.current_page} / {st.session_state.total_pages}</h3>", unsafe_allow_html=True)
+                    # Use number_input for jumping to pages
+                    jump_page = st.number_input(
+                        "Page",
+                        min_value=1,
+                        max_value=st.session_state.total_pages,
+                        value=st.session_state.current_page,
+                        key="jump_page_input",
+                        label_visibility="collapsed"
+                    )
+
+                    # Update current_page if the input changes
+                    if jump_page != st.session_state.current_page:
+                        st.session_state.current_page = jump_page
+                        st.rerun()
+
+                    st.write(f"<p style='text-align: center;'>of {st.session_state.total_pages}</p>", unsafe_allow_html=True)
                 with nav_col3:
                     if st.button("Next", disabled=st.session_state.current_page >= st.session_state.total_pages, use_container_width=True):
                         st.session_state.current_page += 1
