@@ -149,6 +149,8 @@ else:
 # --- Load Selected File ---
 if selected_file and str(selected_file) != st.session_state.last_selected:
     st.session_state.current_page = 1
+    # Force the number_input widget to reset
+    st.session_state["jump_page_input"] = 1
     try:
         payload = process_script_data(selected_file)
         doc_id = payload["document_id"]
@@ -224,11 +226,13 @@ if not st.session_state.editable_df.empty:
             if st.button("⬅️ Previous", use_container_width=True, disabled=st.session_state.file_index == 0):
                 st.session_state.file_index -= 1
                 st.session_state.current_page = 1
+                st.session_state["jump_page_input"] = 1
                 st.rerun()
         with nav_col2:
             if st.button("Next ➡️", use_container_width=True, disabled=st.session_state.file_index >= len(file_names) - 1):
                 st.session_state.file_index += 1
                 st.session_state.current_page = 1
+                st.session_state["jump_page_input"] = 1
                 st.rerun()
         
         with page_col:
@@ -300,7 +304,7 @@ if not st.session_state.editable_df.empty:
                     os.remove(selected_file)
                     st.sidebar.success(f"Removed {selected_rel_path} from pending.")
 
-                st.success(f"Verified JSON exported to: {output_path}")
+                st.success(f"Verified JSON exported to: {target_output_path}")
                 st.balloons()
                 st.json(payload)
                 
