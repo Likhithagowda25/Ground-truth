@@ -111,7 +111,7 @@ else:
     selected_file = file_display_map[selected_rel_path]
 
     st.sidebar.divider()
-    if st.sidebar.button("🚀 Export All Pending", use_container_width=True):
+    if st.sidebar.button("🚀 Export All Pending", width="stretch"):
         progress_bar = st.sidebar.progress(0)
         total = len(pending_files)
         exported_count = 0
@@ -223,13 +223,13 @@ if not st.session_state.editable_df.empty:
         # Script Navigation Row
         nav_col1, nav_col2, page_col = st.columns([1, 1, 1.5])
         with nav_col1:
-            if st.button("⬅️ Previous", use_container_width=True, disabled=st.session_state.file_index == 0):
+            if st.button("⬅️ Previous", width="stretch", disabled=st.session_state.file_index == 0):
                 st.session_state.file_index -= 1
                 st.session_state.current_page = 1
                 st.session_state["jump_page_input"] = 1
                 st.rerun()
         with nav_col2:
-            if st.button("Next ➡️", use_container_width=True, disabled=st.session_state.file_index >= len(file_names) - 1):
+            if st.button("Next ➡️", width="stretch", disabled=st.session_state.file_index >= len(file_names) - 1):
                 st.session_state.file_index += 1
                 st.session_state.current_page = 1
                 st.session_state["jump_page_input"] = 1
@@ -254,7 +254,7 @@ if not st.session_state.editable_df.empty:
         edited_df = st.data_editor(
             st.session_state.editable_df,
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             key="questions_editor",
         )
         st.session_state.editable_df = edited_df
