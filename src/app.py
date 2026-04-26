@@ -12,6 +12,7 @@ from utils import (
     parse_pages_value,
     save_output_json,
     render_pdf_page,
+    get_pdf_total_pages,
 )
 
 
@@ -61,6 +62,48 @@ else:
     )
     selected_file = pending_dir / selected_file_name
 
+    st.sidebar.divider()
+    if st.sidebar.button("🚀 Export All Pending", use_container_width=True):
+        progress_bar = st.sidebar.progress(0)
+        total = len(pending_files)
+        for i, pf in enumerate(pending_files):
+            try:
+                with open(pf, "r") as f:
+                    data = json.load(f)
+                
+                doc_id = data.get("document_id", pf.stem)
+                csv_id = doc_id.replace("ds_", "gt_")
+                csv_path = Path("data/marks") / f"{csv_id}.csv"
+                
+                marks_map = {}
+                if csv_path.exists():
+                    marks_map = load_marks_csv(str(csv_path))
+                
+                merged = merge_questions_with_marks(data.get("questions", []), marks_map)
+                
+                # Use fallback for total_pages if needed
+                total_pages = data.get("total_pages", 0)
+                if not total_pages:
+                    pdf_path = Path("data/scripts") / f"{doc_id}.pdf"
+                    if pdf_path.exists():
+                        total_pages = get_pdf_total_pages(str(pdf_path))
+
+                payload = build_output_json(
+                    document_id=doc_id,
+                    total_pages=total_pages,
+                    questions=merged,
+                )
+                
+                output_dir = Path(export_path)
+                output_dir.mkdir(parents=True, exist_ok=True)
+                save_output_json(payload, str(output_dir / f"{doc_id}.json"))
+                os.remove(pf)
+            except Exception as e:
+                st.sidebar.error(f"Error exporting {pf.name}: {e}")
+            progress_bar.progress((i + 1) / total)
+        st.sidebar.success("Bulk export complete.")
+        st.rerun()
+
 # --- Load Selected File ---
 if selected_file and str(selected_file) != st.session_state.last_selected:
     st.session_state.current_page = 1
@@ -93,7 +136,15 @@ if selected_file and str(selected_file) != st.session_state.last_selected:
         
         st.session_state.editable_df = pd.DataFrame(editable_rows)
         st.session_state.document_id = doc_id
-        st.session_state.total_pages = data.get("total_pages", 0)
+        
+        # Fallback for total_pages if missing or zero
+        total_pages = data.get("total_pages", 0)
+        if not total_pages:
+            pdf_path = Path("data/scripts") / f"{doc_id}.pdf"
+            if pdf_path.exists():
+                total_pages = get_pdf_total_pages(str(pdf_path))
+        
+        st.session_state.total_pages = total_pages
         st.session_state.last_selected = str(selected_file)
     except Exception as e:
         st.error(f"Error loading {selected_file.name}: {e}")
@@ -133,8 +184,11 @@ if not st.session_state.editable_df.empty:
                     st.rerun()
 
             # Render and Display Page
-            img_bytes = render_pdf_page(str(pdf_path), st.session_state.current_page)
-            st.image(img_bytes, use_container_width=True)
+            try:
+                img_bytes = render_pdf_page(str(pdf_path), st.session_state.current_page)
+                st.image(img_bytes, use_container_width=True)
+            except Exception as e:
+                st.error(f"Failed to render page {st.session_state.current_page}: {e}")
             
             st.info(f"Viewing Physical Page {st.session_state.current_page}")
         else:
