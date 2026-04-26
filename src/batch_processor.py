@@ -1,8 +1,9 @@
 import os
 import glob
 import logging
+import tempfile
 from pathlib import Path
-from utils import load_marks_csv, get_pdf_total_pages, save_output_json
+from utils import load_marks_csv, get_pdf_total_pages, save_output_json, compress_pdf
 from llm_mapper import detect_question_pages
 
 # Configure logging
@@ -32,7 +33,6 @@ def run_batch():
         doc_id = pdf_path.stem
         
         # Map PDF (ds_001) to CSV (gt_001)
-        # Assuming the suffix after the underscore is the unique ID
         csv_id = doc_id.replace("ds_", "gt_")
         csv_path = marks_dir / f"{csv_id}.csv"
         
@@ -51,8 +51,19 @@ def run_batch():
             marks_map = load_marks_csv(str(csv_path))
             question_ids = list(marks_map.keys())
             
-            # Detect question pages
-            detected = detect_question_pages(str(pdf_path), question_ids)
+            # Compress PDF for LLM processing (reduces cost & latency while maintaining legibility)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
+                compressed_path = tmp_pdf.name
+            
+            logger.info(f"Compressing {doc_id} for detection...")
+            compress_pdf(str(pdf_path), compressed_path)
+            
+            # Detect question pages using the optimized PDF
+            detected = detect_question_pages(compressed_path, question_ids)
+            
+            # Cleanup temp file
+            if os.path.exists(compressed_path):
+                os.remove(compressed_path)
             
             # Add metadata
             detected["document_id"] = doc_id
@@ -64,6 +75,8 @@ def run_batch():
             
         except Exception as e:
             logger.error(f"Failed to process {doc_id}: {e}")
+            if 'compressed_path' in locals() and os.path.exists(compressed_path):
+                os.remove(compressed_path)
 
 if __name__ == "__main__":
     run_batch()

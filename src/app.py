@@ -61,11 +61,13 @@ if "current_page" not in st.session_state:
 if "last_selected" not in st.session_state:
     st.session_state.last_selected = ""
 
-# --- Sidebar: Pending Files ---
+# --- Sidebar: Verification Hub ---
 st.sidebar.title("Verification Hub")
 
 # Export Settings
 export_path = st.sidebar.text_input("Export Directory", value="data/output/", help="Path where verified JSONs will be saved.")
+
+st.sidebar.divider()
 
 # Script Selection
 pending_dir = Path("data/pending")
@@ -156,7 +158,9 @@ def _validate_questions_for_export(df: pd.DataFrame):
 
 # --- Verification UI ---
 if not st.session_state.editable_df.empty:
-    col_pdf, col_table = st.columns([2, 1])
+    # Use a ratio that makes the table bigger (e.g. 1:1.5)
+    # The PDF side gets 1 unit, the Table side gets 1.5 units
+    col_pdf, col_table = st.columns([1, 1.5])
     
     with col_pdf:
         with st.container():
@@ -164,12 +168,8 @@ if not st.session_state.editable_df.empty:
             pdf_path = Path("data/scripts") / f"{st.session_state.document_id}.pdf"
             
             if pdf_path.exists():
-                # Navigation Bar
-                nav_col1, nav_col2, nav_col3 = st.columns([1, 2, 1])
-                with nav_col1:
-                    if st.button("Previous", disabled=st.session_state.current_page <= 1, use_container_width=True):
-                        st.session_state.current_page -= 1
-                        st.rerun()
+                # Navigation Bar (Simplified to Skip-to-Page only)
+                nav_col1, nav_col2, nav_col3 = st.columns([2, 1, 2])
                 with nav_col2:
                     # Use number_input for jumping to pages
                     jump_page = st.number_input(
@@ -187,18 +187,14 @@ if not st.session_state.editable_df.empty:
                         st.rerun()
 
                     st.write(f"<p style='text-align: center;'>of {st.session_state.total_pages}</p>", unsafe_allow_html=True)
-                with nav_col3:
-                    if st.button("Next", disabled=st.session_state.current_page >= st.session_state.total_pages, use_container_width=True):
-                        st.session_state.current_page += 1
-                        st.rerun()
 
                 # Render and Display Page
                 try:
                     img_bytes = render_pdf_page(str(pdf_path), st.session_state.current_page)
-                    st.image(img_bytes, use_container_width=True)
+                    # Fixed width of 700px keeps it legible and allows zoom-out to show whole page
+                    st.image(img_bytes, width=700)
                 except Exception as e:
-                    st.error(f"Failed to render page {st.session_state.current_page}: {e}")
-                
+                    st.error(f"Failed to render page {st.session_state.current_page}: {e}")                
                 st.info(f"Viewing Physical Page {st.session_state.current_page}")
             else:
                 st.warning(f"PDF not found at {pdf_path}")

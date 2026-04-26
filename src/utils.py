@@ -4,6 +4,7 @@ from typing import Dict, List
 
 import fitz
 import pandas as pd
+import streamlit as st
 
 
 def compress_pdf(pdf_path: str, output_path: str, dpi: int = 150) -> str:
@@ -39,6 +40,7 @@ def get_pdf_total_pages(pdf_path: str) -> int:
         doc.close()
 
 
+@st.cache_data
 def render_pdf_page(pdf_path: str, page_number: int, dpi: int = 150) -> bytes:
     """
     Renders a specific PDF page to bytes as a PNG image.
