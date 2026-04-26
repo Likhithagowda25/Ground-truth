@@ -28,7 +28,7 @@ class TestLLMMapper(unittest.TestCase):
             result = detect_questions_from_pdf(pdf_path, question_ids)
 
         self.assertEqual(result, mock_response.text)
-        mock_gen_model.assert_called_with("gemini-2.5-pro")
+        mock_gen_model.assert_called_with("gemini-1.5-pro")
         mock_model_instance.generate_content.assert_called()
         mock_part.from_data.assert_called_once()
 

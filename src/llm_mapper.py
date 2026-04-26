@@ -56,7 +56,7 @@ def _init_vertexai():
     vertexai.init(project=project_id, location=location)
 
 
-def detect_questions_from_pdf(pdf_path: str, question_ids: list, model_name: str = "gemini-2.5-pro") -> str:
+def detect_questions_from_pdf(pdf_path: str, question_ids: list, model_name: str = "gemini-1.5-pro") -> str:
     _init_vertexai()
     model = GenerativeModel(model_name)
     
@@ -76,7 +76,7 @@ def detect_questions_from_pdf(pdf_path: str, question_ids: list, model_name: str
     return response.text
 
 
-def detect_question_pages(pdf_path: str, question_ids: list, model: str = "gemini-2.5-pro") -> Dict[str, Any]:
+def detect_question_pages(pdf_path: str, question_ids: list, model: str = "gemini-1.5-pro") -> Dict[str, Any]:
     text_output = detect_questions_from_pdf(pdf_path, question_ids, model_name=model)
     parsed = _extract_json(text_output)
 
