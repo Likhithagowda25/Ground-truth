@@ -21,14 +21,17 @@ def process_script_data(pending_file_path: Path) -> dict:
     with open(pending_file_path, "r") as f:
         data = json.load(f)
 
-    # Calculate relative path from data/pending root
+    # Calculate relative path from data/pending root to resolve matching files
     pending_root = Path("data/pending")
-    rel_path = pending_file_path.relative_to(pending_root).parent
+    try:
+        rel_path = pending_file_path.relative_to(pending_root).parent
+    except ValueError:
+        rel_path = Path(".")
 
     doc_id = data.get("document_id", pending_file_path.stem)
     csv_id = doc_id.replace("ds_", "gt_")
     
-    # Resolve CSV path using the same relative structure
+    # Resolve CSV path using the mirrored relative structure
     csv_path = Path("data/marks") / rel_path / f"{csv_id}.csv"
 
     marks_map = {}
@@ -37,7 +40,7 @@ def process_script_data(pending_file_path: Path) -> dict:
 
     merged = merge_questions_with_marks(data.get("questions", []), marks_map)
 
-    # Use fallback for total_pages if needed
+    # Use fallback for total_pages if needed, respecting subfolder structure
     total_pages = data.get("total_pages", 0)
     if not total_pages:
         pdf_path = Path("data/scripts") / rel_path / f"{doc_id}.pdf"
@@ -71,37 +74,40 @@ if "last_selected" not in st.session_state:
 st.sidebar.title("Verification Hub")
 
 # Export Settings
-export_path = st.sidebar.text_input("Export Directory", value="data/output/", help="Path where verified JSONs will be saved.")
+export_path_str = st.sidebar.text_input("Export Directory", value="data/output/", help="Path where verified JSONs will be saved.")
+export_root = Path(export_path_str)
 
 st.sidebar.divider()
 
 # Script Selection
 pending_root = Path("data/pending")
+# Use rglob for recursive discovery of pending files
 pending_files = sorted(list(pending_root.rglob("*.json")))
 
 if not pending_files:
-    st.sidebar.info("No pending files found.")
+    st.sidebar.info("No pending files found. Run `python src/batch_processor.py` first.")
     selected_file = None
 else:
-    # Use relative paths as display names to avoid collisions
-    file_display_names = {str(f.relative_to(pending_root)): f for f in pending_files}
-    file_names = list(file_display_names.keys())
+    # Use relative paths for display names to distinguish between nested files
+    file_display_map = {str(f.relative_to(pending_root)): f for f in pending_files}
+    file_names = list(file_display_map.keys())
     
-    # Safe index for radio selection
+    # Safe index for radio selection based on previous choice
     default_index = 0
-    if st.session_state.get("last_selected"):
-        last_path = Path(st.session_state.last_selected)
-        for i, rel_path in enumerate(file_names):
-            if file_display_names[rel_path] == last_path:
-                default_index = i
-                break
+    if st.session_state.last_selected:
+        try:
+            last_rel_path = str(Path(st.session_state.last_selected).relative_to(pending_root))
+            if last_rel_path in file_names:
+                default_index = file_names.index(last_rel_path)
+        except ValueError:
+            pass
 
     selected_rel_path = st.sidebar.radio(
         "Select a script to verify", 
-        file_names, 
+        file_names,
         index=default_index
     )
-    selected_file = file_display_names[selected_rel_path]
+    selected_file = file_display_map[selected_rel_path]
 
     st.sidebar.divider()
     if st.sidebar.button("🚀 Export All Pending", use_container_width=True):
@@ -109,19 +115,20 @@ else:
         total = len(pending_files)
         for i, pf in enumerate(pending_files):
             try:
-                # Calculate relative path to mirror structure
+                # Mirror the nested folder structure in the output
                 rel_path = pf.relative_to(pending_root).parent
                 payload = process_script_data(pf)
                 doc_id = payload["document_id"]
                 
-                target_dir = Path(export_path) / rel_path
+                target_dir = export_root / rel_path
                 target_dir.mkdir(parents=True, exist_ok=True)
+                
                 save_output_json(payload, str(target_dir / f"{doc_id}.json"))
                 os.remove(pf)
             except Exception as e:
                 st.sidebar.error(f"Error exporting {pf.name}: {e}")
             progress_bar.progress((i + 1) / total)
-        st.sidebar.success("Bulk export complete.")
+        st.sidebar.success(f"Bulk export of {total} files complete.")
         st.rerun()
 
 # --- Load Selected File ---
@@ -133,10 +140,12 @@ if selected_file and str(selected_file) != st.session_state.last_selected:
         total_pages = payload["total_pages"]
         merged = payload["questions"]
 
-        # Map back to CSV to check if it exists for the warning
+        # Resolve relative path for UI warning checks
+        pending_root = Path("data/pending")
         rel_path = selected_file.relative_to(pending_root).parent
         csv_id = doc_id.replace("ds_", "gt_")
         csv_path = Path("data/marks") / rel_path / f"{csv_id}.csv"
+        
         if not csv_path.exists():
             st.warning(f"Marks CSV not found for {doc_id} at {csv_path}. Defaulting marks to 0.")
 
@@ -171,23 +180,22 @@ def _validate_questions_for_export(df: pd.DataFrame):
 
 # --- Verification UI ---
 if not st.session_state.editable_df.empty:
-    # Use a ratio that makes the table bigger (e.g. 1:1.5)
-    # The PDF side gets 1 unit, the Table side gets 1.5 units
+    # Layout favoring the marks table for better visibility
     col_pdf, col_table = st.columns([1, 1.5])
     
     with col_pdf:
         with st.container():
             st.subheader(f"Script: {st.session_state.document_id}")
             
-            # Use relative path to find PDF
+            # Resolve relative PDF path based on selected script
+            pending_root = Path("data/pending")
             rel_path = Path(st.session_state.last_selected).relative_to(pending_root).parent
             pdf_path = Path("data/scripts") / rel_path / f"{st.session_state.document_id}.pdf"
             
             if pdf_path.exists():
-                # Navigation Bar (Simplified to Skip-to-Page only)
+                # Navigation Bar
                 nav_col1, nav_col2, nav_col3 = st.columns([2, 1, 2])
                 with nav_col2:
-                    # Use number_input for jumping to pages
                     jump_page = st.number_input(
                         "Page",
                         min_value=1,
@@ -197,7 +205,6 @@ if not st.session_state.editable_df.empty:
                         label_visibility="collapsed"
                     )
 
-                    # Update current_page if the input changes
                     if jump_page != st.session_state.current_page:
                         st.session_state.current_page = jump_page
                         st.rerun()
@@ -207,7 +214,7 @@ if not st.session_state.editable_df.empty:
                 # Render and Display Page
                 try:
                     img_bytes = render_pdf_page(str(pdf_path), st.session_state.current_page)
-                    # Fixed width of 700px keeps it legible and allows zoom-out to show whole page
+                    # Fixed width of 700px for legibility and zoom-out support
                     st.image(img_bytes, width=700)
                 except Exception as e:
                     st.error(f"Failed to render page {st.session_state.current_page}: {e}")                
@@ -218,7 +225,7 @@ if not st.session_state.editable_df.empty:
     with col_table:
         st.subheader("Question Mapping")
         st.info(f"Total Pages in PDF: {st.session_state.total_pages}")
-        st.write("Review detected question pages. Double-click cells to edit.")
+        st.write("Review and edit question page ranges.")
         
         edited_df = st.data_editor(
             st.session_state.editable_df,
@@ -232,24 +239,21 @@ if not st.session_state.editable_df.empty:
             try:
                 validation_errors = _validate_questions_for_export(st.session_state.editable_df)
                 if validation_errors:
-                    st.error("Validation failed. Please fix page values for these questions:")
+                    st.error("Validation failed. Please fix page values.")
                     st.write(", ".join(validation_errors))
                     st.stop()
 
                 questions = []
                 for _, row in st.session_state.editable_df.iterrows():
                     question_id = str(row["question_id"]).strip()
-                    if not question_id:
-                        continue
+                    if not question_id: continue
                     pages = parse_pages_value(row["pages"])
                     obtained_marks = int(row["obtained_marks"])
-                    questions.append(
-                        {
-                            "question_id": question_id,
-                            "pages": pages,
-                            "obtained_marks": obtained_marks,
-                        }
-                    )
+                    questions.append({
+                        "question_id": question_id,
+                        "pages": pages,
+                        "obtained_marks": obtained_marks,
+                    })
 
                 payload = build_output_json(
                     document_id=st.session_state.document_id,
@@ -257,23 +261,25 @@ if not st.session_state.editable_df.empty:
                     questions=questions,
                 )
                 
-                # Mirror structure during export
+                # Mirror directory structure on final export
+                pending_root = Path("data/pending")
                 rel_path = Path(st.session_state.last_selected).relative_to(pending_root).parent
-                output_dir = Path(export_path) / rel_path
-                output_dir.mkdir(parents=True, exist_ok=True)
-                output_path = output_dir / f"{st.session_state.document_id}.json"
+                target_dir = export_root / rel_path
+                target_dir.mkdir(parents=True, exist_ok=True)
+                
+                output_path = target_dir / f"{st.session_state.document_id}.json"
                 save_output_json(payload, str(output_path))
 
-                # Remove from pending after successful export
+                # Cleanup pending file
                 if selected_file and selected_file.exists():
                     os.remove(selected_file)
-                    st.sidebar.success(f"Removed {selected_file.name} from pending.")
+                    st.sidebar.success(f"Removed {selected_rel_path} from pending.")
 
                 st.success(f"Verified JSON exported to: {output_path}")
                 st.balloons()
                 st.json(payload)
                 
-                # Reset state for next file
+                # Reset state for next script
                 st.session_state.editable_df = pd.DataFrame(columns=["question_id", "pages", "obtained_marks"])
                 st.session_state.document_id = ""
                 st.session_state.last_selected = ""
