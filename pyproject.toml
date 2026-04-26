@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "google-cloud-aiplatform>=1.148.1",
+    "google-genai>=1.73.1",
     "pandas>=3.0.2",
     "pymupdf>=1.27.2.3",
     "streamlit>=1.56.0",

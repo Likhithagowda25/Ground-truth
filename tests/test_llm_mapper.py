@@ -10,17 +10,16 @@ from llm_mapper import detect_questions_from_pdf, detect_question_pages
 
 class TestLLMMapper(unittest.TestCase):
 
-    @patch("llm_mapper.GenerativeModel")
-    @patch("llm_mapper.vertexai.init")
+    @patch("llm_mapper.genai.Client")
     @patch("llm_mapper.Part")
-    def test_detect_questions_from_pdf(self, mock_part, mock_init, mock_gen_model):
-        mock_model_instance = mock_gen_model.return_value
+    def test_detect_questions_from_pdf(self, mock_part, mock_client_class):
+        mock_client = mock_client_class.return_value
         mock_response = MagicMock()
         mock_response.text = '{"questions": [{"question_id": "1a", "pages": [1]}]}'
-        mock_model_instance.generate_content.return_value = mock_response
+        mock_client.models.generate_content.return_value = mock_response
 
-        # Mock Part.from_data
-        mock_part.from_data.return_value = MagicMock()
+        # Mock Part.from_bytes
+        mock_part.from_bytes.return_value = MagicMock()
 
         with patch("builtins.open", mock_open(read_data=b"fake pdf content")):
             pdf_path = "fake.pdf"
@@ -28,9 +27,8 @@ class TestLLMMapper(unittest.TestCase):
             result = detect_questions_from_pdf(pdf_path, question_ids)
 
         self.assertEqual(result, mock_response.text)
-        mock_gen_model.assert_called_with("gemini-1.5-pro")
-        mock_model_instance.generate_content.assert_called()
-        mock_part.from_data.assert_called_once()
+        mock_client.models.generate_content.assert_called_once()
+        mock_part.from_bytes.assert_called_once()
 
     @patch("llm_mapper.detect_questions_from_pdf")
     def test_detect_question_pages(self, mock_detect):
