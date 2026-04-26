@@ -21,9 +21,15 @@ def process_script_data(pending_file_path: Path) -> dict:
     with open(pending_file_path, "r") as f:
         data = json.load(f)
 
+    # Calculate relative path from data/pending root
+    pending_root = Path("data/pending")
+    rel_path = pending_file_path.relative_to(pending_root).parent
+
     doc_id = data.get("document_id", pending_file_path.stem)
     csv_id = doc_id.replace("ds_", "gt_")
-    csv_path = Path("data/marks") / f"{csv_id}.csv"
+    
+    # Resolve CSV path using the same relative structure
+    csv_path = Path("data/marks") / rel_path / f"{csv_id}.csv"
 
     marks_map = {}
     if csv_path.exists():
@@ -103,12 +109,14 @@ else:
         total = len(pending_files)
         for i, pf in enumerate(pending_files):
             try:
+                # Calculate relative path to mirror structure
+                rel_path = pf.relative_to(Path("data/pending")).parent
                 payload = process_script_data(pf)
                 doc_id = payload["document_id"]
                 
-                output_dir = Path(export_path)
-                output_dir.mkdir(parents=True, exist_ok=True)
-                save_output_json(payload, str(output_dir / f"{doc_id}.json"))
+                target_dir = Path(export_path) / rel_path
+                target_dir.mkdir(parents=True, exist_ok=True)
+                save_output_json(payload, str(target_dir / f"{doc_id}.json"))
                 os.remove(pf)
             except Exception as e:
                 st.sidebar.error(f"Error exporting {pf.name}: {e}")
@@ -245,7 +253,9 @@ if not st.session_state.editable_df.empty:
                     questions=questions,
                 )
                 
-                output_dir = Path(export_path)
+                # Calculate relative path to mirror structure
+                rel_path = selected_file.relative_to(Path("data/pending")).parent
+                output_dir = Path(export_path) / rel_path
                 output_dir.mkdir(parents=True, exist_ok=True)
                 output_path = output_dir / f"{st.session_state.document_id}.json"
                 save_output_json(payload, str(output_path))
