@@ -1,9 +1,26 @@
-.venv/
+# Python
 __pycache__/
-*.pyc
-.env
-data/output/*.json
-.superpowers/
-docs
-.python-version
+*.py[cod]
+*$py.class
+.venv/
+.pytest_cache/
 
+# Data (Sensitive & local)
+data/
+
+# AI Agent Artifacts (Requested to be excluded)
+.superpowers/
+docs/superpowers/
+~/
+.gemini/
+GEMINI.md
+uv.lock
+.python-version
+~/.gemini_plans/
+~/.gemini_plans/*
+\~/.gemini_plans/
+\~/.gemini_plans/*
+
+# Project specific
+.vscode/
+.idea/
