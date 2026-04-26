@@ -79,6 +79,9 @@ st.sidebar.title("Verification Hub")
 export_path_str = st.sidebar.text_input("Export Directory", value="data/output/", help="Path where verified JSONs will be saved.")
 export_root = Path(export_path_str)
 
+# Global Safety Toggle
+force_overwrite_all = st.sidebar.checkbox("Force Overwrite All", value=False, help="Allow bulk export to overwrite existing files in the output directory.")
+
 st.sidebar.divider()
 
 # Script Selection
@@ -111,6 +114,9 @@ else:
     if st.sidebar.button("🚀 Export All Pending", use_container_width=True):
         progress_bar = st.sidebar.progress(0)
         total = len(pending_files)
+        exported_count = 0
+        skipped_count = 0
+        
         for i, pf in enumerate(pending_files):
             try:
                 # Mirror the nested folder structure in the output
@@ -119,14 +125,25 @@ else:
                 doc_id = payload["document_id"]
                 
                 target_dir = export_root / rel_path
-                target_dir.mkdir(parents=True, exist_ok=True)
+                output_path = target_dir / f"{doc_id}.json"
                 
-                save_output_json(payload, str(target_dir / f"{doc_id}.json"))
+                # Bulk Safety Check
+                if output_path.exists() and not force_overwrite_all:
+                    skipped_count += 1
+                    continue
+                
+                target_dir.mkdir(parents=True, exist_ok=True)
+                save_output_json(payload, str(output_path))
                 os.remove(pf)
+                exported_count += 1
             except Exception as e:
                 st.sidebar.error(f"Error exporting {pf.name}: {e}")
             progress_bar.progress((i + 1) / total)
-        st.sidebar.success(f"Bulk export of {total} files complete.")
+        
+        if skipped_count > 0:
+            st.sidebar.warning(f"Export complete. Sent {exported_count} files. Skipped {skipped_count} existing files (enable 'Force Overwrite' to replace them).")
+        else:
+            st.sidebar.success(f"Bulk export of {exported_count} files complete.")
         st.rerun()
 
 # --- Load Selected File ---
@@ -240,7 +257,17 @@ if not st.session_state.editable_df.empty:
         )
         st.session_state.editable_df = edited_df
 
-        if st.button("Export Verified Ground Truth", type="primary"):
+        # Individual Overwrite Safety Check
+        rel_path = Path(st.session_state.last_selected).relative_to(pending_root).parent
+        target_output_path = export_root / rel_path / f"{st.session_state.document_id}.json"
+        
+        can_export = True
+        if target_output_path.exists():
+            st.warning(f"⚠️ `{st.session_state.document_id}.json` already exists in output.")
+            confirm_overwrite = st.checkbox("Confirm Overwrite", value=False)
+            can_export = confirm_overwrite
+
+        if st.button("Export Verified Ground Truth", type="primary", disabled=not can_export):
             try:
                 validation_errors = _validate_questions_for_export(st.session_state.editable_df)
                 if validation_errors:
@@ -267,12 +294,8 @@ if not st.session_state.editable_df.empty:
                 )
                 
                 # Mirror directory structure on final export
-                rel_path = Path(st.session_state.last_selected).relative_to(pending_root).parent
-                target_dir = export_root / rel_path
-                target_dir.mkdir(parents=True, exist_ok=True)
-                
-                output_path = target_dir / f"{st.session_state.document_id}.json"
-                save_output_json(payload, str(output_path))
+                target_output_path.parent.mkdir(parents=True, exist_ok=True)
+                save_output_json(payload, str(target_output_path))
 
                 # Cleanup pending file
                 if selected_file and selected_file.exists():
