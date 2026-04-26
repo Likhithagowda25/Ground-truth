@@ -230,20 +230,16 @@ if not st.session_state.editable_df.empty:
                 st.rerun()
         
         with page_col:
-            # Simple text input for page number to avoid +/- buttons
-            page_val = st.text_input(
+            jump_page = st.number_input(
                 "Jump to Page",
-                value=str(st.session_state.current_page),
-                key="page_text_input",
-                help=f"Total pages: {st.session_state.total_pages}"
+                min_value=1,
+                max_value=st.session_state.total_pages,
+                value=st.session_state.current_page,
+                key="jump_page_input"
             )
-            try:
-                new_page = int(page_val)
-                if 1 <= new_page <= st.session_state.total_pages and new_page != st.session_state.current_page:
-                    st.session_state.current_page = new_page
-                    st.rerun()
-            except ValueError:
-                pass
+            if jump_page != st.session_state.current_page:
+                st.session_state.current_page = jump_page
+                st.rerun()
 
         st.subheader("Question Mapping")
         st.info(f"Total Pages in PDF: {st.session_state.total_pages}")
