@@ -34,7 +34,7 @@ A system to autonomously generate ground-truth JSON for student answer scripts u
   "total_pages": 12,
   "questions": [
     {
-      "question_id": "Q1a",
+      "question_id": "1a",
       "pages": [1, 2],
       "obtained_marks": 6
     }
