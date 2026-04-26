@@ -6,10 +6,49 @@ import fitz
 import pandas as pd
 
 
+def compress_pdf(pdf_path: str, output_path: str, dpi: int = 150) -> str:
+    """
+    Compresses a PDF by reducing DPI to optimize for LLM processing
+    while maintaining legibility.
+    """
+    doc = fitz.open(pdf_path)
+    try:
+        # Create a new PDF with reduced resolution
+        new_doc = fitz.open()
+        for page in doc:
+            # Render page to an image (pixmap) at target DPI
+            pix = page.get_pixmap(dpi=dpi)
+            # Create a new page with the same dimensions
+            new_page = new_doc.new_page(width=page.rect.width, height=page.rect.height)
+            # Insert the rendered image into the new page
+            new_page.insert_image(new_page.rect, pixmap=pix)
+        
+        new_doc.save(output_path, garbage=4, deflate=True)
+        return output_path
+    finally:
+        doc.close()
+        if 'new_doc' in locals():
+            new_doc.close()
+
+
 def get_pdf_total_pages(pdf_path: str) -> int:
     doc = fitz.open(pdf_path)
     try:
         return len(doc)
+    finally:
+        doc.close()
+
+
+def render_pdf_page(pdf_path: str, page_number: int, dpi: int = 150) -> bytes:
+    """
+    Renders a specific PDF page to bytes as a PNG image.
+    page_number is 1-indexed.
+    """
+    doc = fitz.open(pdf_path)
+    try:
+        page = doc.load_page(page_number - 1)
+        pix = page.get_pixmap(dpi=dpi)
+        return pix.tobytes("png")
     finally:
         doc.close()
 
