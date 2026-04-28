@@ -1,11 +1,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-import sys
 import os
-
-# Add src to path if necessary
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from batch_processor import run_batch
 
@@ -26,19 +22,8 @@ def test_run_batch_recursive_structure(tmp_path):
     csv_path = marks_root / sub_dir / "gt_001.csv"
     csv_path.touch()
     
-    # We need to mock Path in batch_processor to use our tmp_path based paths
-    # Alternatively, we can patch the string literals if we use them, 
-    # but the implementation uses Path("data/scripts") etc.
-    
-    with patch("batch_processor.Path") as MockPath:
-        # Mock Path to point to our tmp_path for the root directories
-        def side_effect(path_str):
-            if path_str == "data/scripts": return scripts_root
-            if path_str == "data/marks": return marks_root
-            if path_str == "data/pending": return pending_root
-            return Path(path_str)
-        MockPath.side_effect = side_effect
-        
+    # Patch Path.cwd() to return our tmp_path
+    with patch("batch_processor.Path.cwd", return_value=tmp_path):
         with patch("batch_processor.load_marks_csv") as mock_load_csv, \
              patch("batch_processor.compress_pdf") as mock_compress, \
              patch("batch_processor.detect_question_pages") as mock_detect, \
@@ -56,7 +41,6 @@ def test_run_batch_recursive_structure(tmp_path):
             expected_pending_path = pending_root / sub_dir / "ds_001.json"
             
             # Check if save_output_json was called with the correct path
-            # The current implementation will fail this because it doesn't handle subdirs yet
             mock_save.assert_called_once()
             args, _ = mock_save.call_args
             # args[1] is the pending_path

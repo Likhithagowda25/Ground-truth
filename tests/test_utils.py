@@ -1,6 +1,6 @@
 import unittest
 import os
-from src.utils import render_pdf_page
+from utils import render_pdf_page
 
 class TestUtils(unittest.TestCase):
     def test_render_pdf_page(self):
