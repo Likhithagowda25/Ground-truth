@@ -7,28 +7,32 @@ import pandas as pd
 import streamlit as st
 
 
-def compress_pdf(pdf_path: str, output_path: str, dpi: int = 70) -> str:
+def compress_pdf(pdf_path: str, output_path: str, dpi: int = 100, quality: int = 70) -> str:
     """
-    Compresses a PDF by reducing DPI and using JPEG compression 
-    to optimize for LLM processing while maintaining legibility.
+    Compresses a PDF by reducing DPI and using JPEG compression.
+    Adaptive: starts with high quality and reduces DPI if the file is too large (>20MB).
     """
-    doc = fitz.open(pdf_path)
-    try:
+    def generate_pdf(current_dpi, current_quality):
+        doc = fitz.open(pdf_path)
         new_doc = fitz.open()
-        for page in doc:
-            pix = page.get_pixmap(dpi=dpi)
-            # Use lower JPEG quality for more compression
-            img_bytes = pix.tobytes("jpg", jpg_quality=50)
-            
-            new_page = new_doc.new_page(width=page.rect.width, height=page.rect.height)
-            new_page.insert_image(new_page.rect, stream=img_bytes)
-        
-        new_doc.save(output_path, garbage=4, deflate=True)
-        return output_path
-    finally:
-        doc.close()
-        if 'new_doc' in locals():
+        try:
+            for page in doc:
+                pix = page.get_pixmap(dpi=current_dpi)
+                img_bytes = pix.tobytes("jpg", jpg_quality=current_quality)
+                new_page = new_doc.new_page(width=page.rect.width, height=page.rect.height)
+                new_page.insert_image(new_page.rect, stream=img_bytes)
+            new_doc.save(output_path, garbage=4, deflate=True)
+        finally:
+            doc.close()
             new_doc.close()
+
+    # Strategy: Try 100 DPI, then 85, then 70 if file > 20MB
+    for target_dpi in [dpi, 85, 70]:
+        generate_pdf(target_dpi, quality)
+        if os.path.getsize(output_path) < 20 * 1024 * 1024:
+            break
+            
+    return output_path
 
 
 def get_pdf_total_pages(pdf_path: str) -> int:
