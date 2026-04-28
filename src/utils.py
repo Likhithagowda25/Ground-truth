@@ -7,22 +7,21 @@ import pandas as pd
 import streamlit as st
 
 
-def compress_pdf(pdf_path: str, output_path: str, dpi: int = 150) -> str:
+def compress_pdf(pdf_path: str, output_path: str, dpi: int = 70) -> str:
     """
-    Compresses a PDF by reducing DPI to optimize for LLM processing
-    while maintaining legibility.
+    Compresses a PDF by reducing DPI and using JPEG compression 
+    to optimize for LLM processing while maintaining legibility.
     """
     doc = fitz.open(pdf_path)
     try:
-        # Create a new PDF with reduced resolution
         new_doc = fitz.open()
         for page in doc:
-            # Render page to an image (pixmap) at target DPI
             pix = page.get_pixmap(dpi=dpi)
-            # Create a new page with the same dimensions
+            # Use lower JPEG quality for more compression
+            img_bytes = pix.tobytes("jpg", jpg_quality=50)
+            
             new_page = new_doc.new_page(width=page.rect.width, height=page.rect.height)
-            # Insert the rendered image into the new page
-            new_page.insert_image(new_page.rect, pixmap=pix)
+            new_page.insert_image(new_page.rect, stream=img_bytes)
         
         new_doc.save(output_path, garbage=4, deflate=True)
         return output_path
