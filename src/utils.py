@@ -46,14 +46,26 @@ def get_pdf_total_pages(pdf_path: str) -> int:
 @st.cache_data
 def render_pdf_page(pdf_path: str, page_number: int, dpi: int = 150) -> bytes:
     """
-    Renders a specific PDF page to bytes as a PNG image.
+    Renders a specific PDF page to bytes.
+    Optimized for flattened PDFs: tries to extract raw image first, falls back to rendering.
     page_number is 1-indexed.
     """
     doc = fitz.open(pdf_path)
     try:
         if page_number < 1 or page_number > len(doc):
             raise ValueError(f"Invalid page number {page_number}. Must be between 1 and {len(doc)}.")
+        
         page = doc.load_page(page_number - 1)
+        
+        # Fast Path: Try extracting the image directly (optimized for flattened PDFs)
+        images = page.get_images(full=True)
+        if images:
+            # We assume the first image is the page content in our flattened PDFs
+            xref = images[0][0]
+            base_image = doc.extract_image(xref)
+            return base_image["image"]
+
+        # Slow Path: Fallback to standard rendering
         pix = page.get_pixmap(dpi=dpi)
         return pix.tobytes("png")
     finally:

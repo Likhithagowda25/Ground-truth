@@ -220,7 +220,20 @@ if not st.session_state.editable_df.empty:
                 st.warning(f"PDF not found at {pdf_path}")
 
     with col_table:
+        st.subheader("Question Mapping")
+        st.info(f"Total Pages in PDF: {st.session_state.total_pages}")
+        st.write("Review and edit question page ranges.")
+        
+        edited_df = st.data_editor(
+            st.session_state.editable_df,
+            num_rows="dynamic",
+            width="stretch",
+            key="questions_editor",
+        )
+        st.session_state.editable_df = edited_df
+
         # Script Navigation Row
+        st.divider()
         nav_col1, nav_col2, page_col = st.columns([1, 1, 1.5])
         with nav_col1:
             if st.button("⬅️ Previous", width="stretch", disabled=st.session_state.file_index == 0):
@@ -246,18 +259,6 @@ if not st.session_state.editable_df.empty:
             if jump_page != st.session_state.current_page:
                 st.session_state.current_page = jump_page
                 st.rerun()
-
-        st.subheader("Question Mapping")
-        st.info(f"Total Pages in PDF: {st.session_state.total_pages}")
-        st.write("Review and edit question page ranges.")
-        
-        edited_df = st.data_editor(
-            st.session_state.editable_df,
-            num_rows="dynamic",
-            width="stretch",
-            key="questions_editor",
-        )
-        st.session_state.editable_df = edited_df
 
         # Individual Overwrite Safety Check
         rel_path = Path(st.session_state.last_selected).relative_to(pending_root).parent
