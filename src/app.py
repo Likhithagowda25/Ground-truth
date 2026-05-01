@@ -224,13 +224,34 @@ if not st.session_state.editable_df.empty:
         st.info(f"Total Pages in PDF: {st.session_state.total_pages}")
         st.write("Review and edit question page ranges.")
         
-        edited_df = st.data_editor(
+        # Use on_change to sync the editor state back to the source DataFrame
+        def on_editor_change():
+            # Apply changes from the editor's session state entry directly
+            changes = st.session_state.questions_editor
+            
+            # Simple sync: update st.session_state.editable_df based on edits
+            # This prevents the 'revert' behavior because the source is updated before the next render
+            for row_idx, edit in changes.get("edited_rows", {}).items():
+                for col, val in edit.items():
+                    st.session_state.editable_df.at[int(row_idx), col] = val
+            
+            # Handle additions
+            for row in changes.get("added_rows", []):
+                new_row = pd.DataFrame([row])
+                st.session_state.editable_df = pd.concat([st.session_state.editable_df, new_row], ignore_index=True)
+            
+            # Handle deletions
+            deleted_indices = changes.get("deleted_rows", [])
+            if deleted_indices:
+                st.session_state.editable_df = st.session_state.editable_df.drop(deleted_indices).reset_index(drop=True)
+
+        st.data_editor(
             st.session_state.editable_df,
             num_rows="dynamic",
             width="stretch",
             key="questions_editor",
+            on_change=on_editor_change
         )
-        st.session_state.editable_df = edited_df
 
         # Script Navigation Row
         st.divider()
